@@ -1,0 +1,1 @@
+import sqlite3, os; os.makedirs('data', exist_ok=True); conn = sqlite3.connect('data/sales.db'); conn.execute('CREATE TABLE IF NOT EXISTS sales_data (id INTEGER PRIMARY KEY, date TEXT, amount REAL)'); conn.close(); print('Database fixed!')

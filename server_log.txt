@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "C:\SAAS\depi\wsgi.py", line 1, in <module>
+    from app.app import app, initialize_app
+  File "C:\SAAS\depi\app\app.py", line 5, in <module>
+    from app.data_loader import initialize_database
+  File "C:\SAAS\depi\app\data_loader.py", line 3, in <module>
+    from database import Database
+ModuleNotFoundError: No module named 'database'

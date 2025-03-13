@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Forecasting Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #22c55e;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text);
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        .navbar {
+            background-color: var(--card-bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border);
+            padding: 1rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .form-control {
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0.5rem 0;
+        }
+
+        .metric-label {
+            color: var(--secondary);
+            font-size: 0.875rem;
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.8);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light mb-4">
+        <div class="container">
+            <span class="navbar-brand">Sales Forecasting Dashboard</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="row">
+            <!-- Main Content -->
+            <div class="col-lg-8">
+                <!-- Forecast Chart -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Sales Forecast</h5>
+                        <div>
+                            <button id="trainModel" class="btn btn-primary me-2">
+                                <i class="fas fa-sync-alt me-2"></i>Train Model
+                            </button>
+                            <button id="generateForecast" class="btn btn-primary">
+                                <i class="fas fa-chart-line me-2"></i>Generate Forecast
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <div id="forecastChart"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Forecast Accuracy</div>
+                        <div class="metric-value" id="accuracy">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">MAPE</div>
+                        <div class="metric-value" id="mape">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">RMSE</div>
+                        <div class="metric-value" id="rmse">-</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Growth Rate</div>
+                        <div class="metric-value" id="growth">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Model Configuration -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Model Parameters</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="modelForm">
+                            <div class="mb-3">
+                                <label class="form-label">Forecast Horizon (days)</label>
+                                <input type="number" class="form-control" id="horizon" value="30" min="1" title="Enter forecast horizon in days" placeholder="Enter number of days">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">AR Order (p)</label>
+                                <input type="number" class="form-control" id="p" value="1" min="0" title="Enter AR order parameter" placeholder="Enter p value">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Difference Order (d)</label>
+                                <input type="number" class="form-control" id="d" value="1" min="0" title="Enter difference order parameter" placeholder="Enter d value">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">MA Order (q)</label>
+                                <input type="number" class="form-control" id="q" value="1" min="0" title="Enter MA order parameter" placeholder="Enter q value">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-save me-2"></i>Update Parameters
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modelForm = document.getElementById('modelForm');
+            const trainModelBtn = document.getElementById('trainModel');
+            const generateForecastBtn = document.getElementById('generateForecast');
+            const loading = document.querySelector('.loading');
+            
+            const API_BASE_URL = 'http://localhost:8000';
+
+            // Model Parameters Update Handler
+            modelForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                showLoading();
+
+                const params = {
+                    order: [
+                        parseInt(document.getElementById('p').value),
+                        parseInt(document.getElementById('d').value),
+                        parseInt(document.getElementById('q').value)
+                    ]
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/train`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        body: JSON.stringify(params)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        showSuccess('Model parameters updated successfully');
+                        updateMetrics(result.metrics);
+                    } else {
+                        showError(`Error: ${result.message}`);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error updating parameters');
+                } finally {
+                    hideLoading();
+                }
+            });
+
+            // Train Model Handler
+            trainModelBtn.addEventListener('click', async () => {
+                showLoading();
+                try {
+                    const response = await fetch(`${API_BASE_URL}/train`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        body: JSON.stringify({})
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        showSuccess('Model trained successfully');
+                        updateMetrics(result.metrics);
+                    } else {
+                        showError(`Error: ${result.message}`);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error training model');
+                } finally {
+                    hideLoading();
+                }
+            });
+
+            // Generate Forecast Handler
+            generateForecastBtn.addEventListener('click', async () => {
+                showLoading();
+                const horizon = parseInt(document.getElementById('horizon').value);
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/forecast`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'Access-Control-Allow-Origin': '*'
+                        },
+                        body: JSON.stringify({ horizon: horizon })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        updateForecastChart(result);
+                        updateMetrics(result.metrics);
+                        showSuccess('Forecast generated successfully');
+                    } else {
+                        showError(`Error: ${result.message}`);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showError('Error generating forecast');
+                } finally {
+                    hideLoading();
+                }
+            });
+
+            // Helper Functions
+            function showLoading() {
+                loading.style.display = 'flex';
+            }
+
+            function hideLoading() {
+                loading.style.display = 'none';
+            }
+
+            function showError(message) {
+                alert(message);
+            }
+
+            function showSuccess(message) {
+                alert(message);
+            }
+
+            // Update Metrics Function
+            function updateMetrics(metrics) {
+                if (!metrics) return;
+                
+                document.getElementById('accuracy').textContent = `${metrics.forecast_accuracy.toFixed(2)}%`;
+                document.getElementById('mape').textContent = `${metrics.mape.toFixed(2)}%`;
+                document.getElementById('rmse').textContent = metrics.rmse.toFixed(2);
+                document.getElementById('growth').textContent = `${metrics.growth_rate.toFixed(2)}%`;
+            }
+
+            // Update Forecast Chart Function
+            function updateForecastChart(data) {
+                const traces = [];
+
+                // Add historical data if available
+                if (data.historical) {
+                    traces.push({
+                        x: data.historical_dates,
+                        y: data.historical,
+                        name: 'Historical',
+                        type: 'scatter',
+                        line: { color: '#2563eb' }
+                    });
+                }
+
+                // Add forecast
+                traces.push({
+                    x: data.dates,
+                    y: data.forecast,
+                    name: 'Forecast',
+                    type: 'scatter',
+                    line: { color: '#22c55e', dash: 'dash' }
+                });
+
+                // Add confidence intervals
+                traces.push({
+                    x: data.dates.concat(data.dates.slice().reverse()),
+                    y: data.upper_bound.concat(data.lower_bound.slice().reverse()),
+                    fill: 'toself',
+                    fillcolor: 'rgba(37,99,235,0.1)',
+                    line: { color: 'transparent' },
+                    name: 'Confidence Interval',
+                    showlegend: true,
+                    type: 'scatter'
+                });
+
+                const layout = {
+                    margin: { t: 20, r: 20, l: 50, b: 50 },
+                    xaxis: {
+                        title: 'Date',
+                        gridcolor: '#e2e8f0',
+                        zeroline: false
+                    },
+                    yaxis: {
+                        title: 'Sales',
+                        gridcolor: '#e2e8f0',
+                        zeroline: false
+                    },
+                    paper_bgcolor: 'transparent',
+                    plot_bgcolor: 'transparent',
+                    showlegend: true,
+                    legend: {
+                        x: 0,
+                        y: 1.1,
+                        orientation: 'h'
+                    },
+                    hovermode: 'x unified'
+                };
+
+                Plotly.newPlot('forecastChart', traces, layout, {
+                    responsive: true,
+                    displayModeBar: false
+                });
+            }
+        });
+    </script>
+</body>
+</html> 

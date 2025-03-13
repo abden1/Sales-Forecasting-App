@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: sales-forecasting
+Version: 0.4.0
+Summary: A sales forecasting package based on date features
+Author: Anik
+Author-email: anik.dip@gmail.com
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: numpy
+Requires-Dist: joblib
+
