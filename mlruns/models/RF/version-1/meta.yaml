@@ -1,0 +1,16 @@
+aliases: []
+creation_timestamp: 1747165926944
+current_stage: None
+description: ''
+last_updated_timestamp: 1747165926944
+name: RF
+run_id: 94e9711d3dfc49af991931a1c863dd8f
+run_link: ''
+source: file:///home/boda/Projects/s9_grad/mlruns/413053391963859338/94e9711d3dfc49af991931a1c863dd8f/artifacts/Random
+  Forest Regressor
+status: READY
+status_message: null
+storage_location: file:///home/boda/Projects/s9_grad/mlruns/413053391963859338/94e9711d3dfc49af991931a1c863dd8f/artifacts/Random
+  Forest Regressor
+user_id: null
+version: 1

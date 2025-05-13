@@ -1,0 +1,10 @@
+name: sales_forcasting
+
+conda_env: conda.yaml
+
+entry_points:
+  main:
+    parameters:
+      n_estimators: {type: int, default: 50}
+      random_state: {type: int, default: 42}
+    command: "python train.py --n_estimators {n_estimators} --random_state {random_state}"
