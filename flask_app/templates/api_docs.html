@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - Random Forest Sales Predictor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+<body>
+    <div class="container mt-4">
+        <nav class="navbar navbar-expand-lg navbar-light bg-light rounded mb-4">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/">Sales Predictor</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/performance">Model Performance</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="/docs">API Documentation</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <div class="row">
+            <div class="col-12 text-center mb-4">
+                <h1>API Documentation</h1>
+                <p class="lead">Integrate the Random Forest sales prediction model into your applications</p>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4>API Overview</h4>
+                    </div>
+                    <div class="card-body">
+                        <p>The Sales Prediction API provides programmatic access to the Random Forest model.</p>
+                        <p>Base URL: <code>http://localhost:5000</code></p>
+                        <p><strong>Features:</strong></p>
+                        <ul>
+                            <li>Single day prediction</li>
+                            <li>Multi-day forecast (up to 30 days)</li>
+                            <li>JSON response format</li>
+                            <li>Error handling</li>
+                        </ul>
+                        <p><strong>Rate Limits:</strong></p>
+                        <ul>
+                            <li>60 requests per minute</li>
+                            <li>1000 requests per day</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h4>Authentication</h4>
+                    </div>
+                    <div class="card-body">
+                        <p>Currently, the API does not require authentication.</p>
+                        <p>For production use, API keys should be implemented for security.</p>
+                        <div class="alert alert-info mt-3">
+                            <strong>Coming Soon:</strong> API key authentication for secure access.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-8">
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h4>Single Prediction Endpoint</h4>
+                    </div>
+                    <div class="card-body">
+                        <h5>Endpoint</h5>
+                        <pre><code>POST /api/v1/predict</code></pre>
+                        
+                        <h5>Request Body Parameters</h5>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Required</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>lag_1</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Previous day's sales amount</td>
+                                </tr>
+                                <tr>
+                                    <td>lag_7</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Sales amount from 7 days ago</td>
+                                </tr>
+                                <tr>
+                                    <td>rolling_3_mean</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Average sales of the past 3 days</td>
+                                </tr>
+                                <tr>
+                                    <td>day_of_week</td>
+                                    <td>Integer (0-6)</td>
+                                    <td>Yes</td>
+                                    <td>Day of the week (0=Monday, 6=Sunday)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h5>Example Request</h5>
+                        <pre><code class="language-json">{
+  "lag_1": 525000,
+  "lag_7": 510000,
+  "rolling_3_mean": 505000,
+  "day_of_week": 2
+}</code></pre>
+                        
+                        <h5>Example Response</h5>
+                        <pre><code class="language-json">{
+  "success": true,
+  "prediction": 535876.45,
+  "prediction_formatted": "₹535876.45"
+}</code></pre>
+                    </div>
+                </div>
+                
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">
+                        <h4>Multi-Day Forecast Endpoint</h4>
+                    </div>
+                    <div class="card-body">
+                        <h5>Endpoint</h5>
+                        <pre><code>POST /api/v1/forecast</code></pre>
+                        
+                        <h5>Request Body Parameters</h5>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Type</th>
+                                    <th>Required</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>lag_1</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Most recent day's sales amount</td>
+                                </tr>
+                                <tr>
+                                    <td>lag_7</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Sales amount from 7 days ago</td>
+                                </tr>
+                                <tr>
+                                    <td>rolling_3_mean</td>
+                                    <td>Number</td>
+                                    <td>Yes</td>
+                                    <td>Average sales of the past 3 days</td>
+                                </tr>
+                                <tr>
+                                    <td>day_of_week</td>
+                                    <td>Integer (0-6)</td>
+                                    <td>Yes</td>
+                                    <td>Starting day of the week (0=Monday, 6=Sunday)</td>
+                                </tr>
+                                <tr>
+                                    <td>days</td>
+                                    <td>Integer</td>
+                                    <td>No</td>
+                                    <td>Number of days to forecast (default: 7, max: 30)</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h5>Example Request</h5>
+                        <pre><code class="language-json">{
+  "lag_1": 525000,
+  "lag_7": 510000,
+  "rolling_3_mean": 505000,
+  "day_of_week": 2,
+  "days": 3
+}</code></pre>
+                        
+                        <h5>Example Response</h5>
+                        <pre><code class="language-json">{
+  "success": true,
+  "forecast": [
+    {
+      "day": 1,
+      "day_of_week": 2,
+      "day_name": "Wednesday",
+      "prediction": 535876.45,
+      "prediction_formatted": "₹535876.45"
+    },
+    {
+      "day": 2,
+      "day_of_week": 3,
+      "day_name": "Thursday",
+      "prediction": 548921.32,
+      "prediction_formatted": "₹548921.32"
+    },
+    {
+      "day": 3,
+      "day_of_week": 4,
+      "day_name": "Friday",
+      "prediction": 612045.78,
+      "prediction_formatted": "₹612045.78"
+    }
+  ]
+}</code></pre>
+                        
+                        <h5>Error Response</h5>
+                        <pre><code class="language-json">{
+  "success": false,
+  "error": "Missing required field: lag_1"
+}</code></pre>
+                        
+                        <h5>Python Integration Example</h5>
+                        <pre><code class="language-python">import requests
+import json
+
+# Prepare prediction data
+data = {
+    "lag_1": 525000,
+    "lag_7": 510000,
+    "rolling_3_mean": 505000,
+    "day_of_week": 2,
+    "days": 7
+}
+
+# Make API request
+response = requests.post('http://localhost:5000/api/v1/forecast', 
+                        json=data)
+
+# Process response
+if response.status_code == 200:
+    forecast = response.json()
+    if forecast['success']:
+        for day in forecast['forecast']:
+            print(f"Day {day['day']} ({day['day_name']}): {day['prediction_formatted']}")
+    else:
+        print(f"Error: {forecast['error']}")
+else:
+    print(f"HTTP Error: {response.status_code}")</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

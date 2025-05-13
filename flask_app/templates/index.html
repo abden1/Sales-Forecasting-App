@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Prediction - Random Forest</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.0"></script>
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12 text-center mb-4">
+                <h1>E-Commerce Sales Predictor</h1>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-5 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4>Input Parameters</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="prediction-form">
+                            <div class="mb-3">
+                                <label for="lag_1" class="form-label">Last Day Sales (₹)</label>
+                                <input type="number" class="form-control" id="lag_1" name="lag_1" value="500000" step="1000" required>
+                                <div class="form-text">Yesterday's total sales amount</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="lag_7" class="form-label">Last Week Same Day (₹)</label>
+                                <input type="number" class="form-control" id="lag_7" name="lag_7" value="500000" step="1000" required>
+                                <div class="form-text">Sales from same day last week</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="rolling_3_mean" class="form-label">3-Day Average (₹)</label>
+                                <input type="number" class="form-control" id="rolling_3_mean" name="rolling_3_mean" value="500000" step="1000" required>
+                                <div class="form-text">Average sales of the last 3 days</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="day_of_week" class="form-label">Start Day of Week</label>
+                                <select class="form-control" id="day_of_week" name="day_of_week" required>
+                                    <option value="0">Monday</option>
+                                    <option value="1">Tuesday</option>
+                                    <option value="2">Wednesday</option>
+                                    <option value="3">Thursday</option>
+                                    <option value="4">Friday</option>
+                                    <option value="5">Saturday</option>
+                                    <option value="6">Sunday</option>
+                                </select>
+                                <div class="form-text">Day of the week to start prediction</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="forecast_days" class="form-label">Forecast Duration</label>
+                                <select class="form-control mb-2" id="forecast_days" name="forecast_days">
+                                    <option value="7">1 Week (7 days)</option>
+                                    <option value="14">2 Weeks (14 days)</option>
+                                    <option value="21">3 Weeks (21 days)</option>
+                                    <option value="30">30 Days</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                                <div id="custom-days-container" class="mb-2" style="display: none;">
+                                    <label for="custom_days" class="form-label">Enter Custom Days</label>
+                                    <input type="number" class="form-control" id="custom_days" name="custom_days" min="1" max="90" value="45" required>
+                                </div>
+                                <div class="form-text">Number of days to forecast (up to 90 days)</div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="button" id="forecast-btn" class="btn btn-primary">Generate Forecast</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-7">
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h4 id="forecast-heading">7-Day Sales Forecast</h4>
+                        <div class="small text-white"><i>Tip: Use mouse wheel to zoom, click-and-drag to pan, double-click to reset</i></div>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button id="reset-zoom" class="btn btn-sm btn-outline-secondary">Reset Zoom</button>
+                        </div>
+                        <canvas id="forecast-chart" height="200"></canvas>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="forecast-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Day</th>
+                                    <th>Date</th>
+                                    <th>Day of Week</th>
+                                    <th>Predicted Sales</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for day in forecast_data %}
+                                <tr>
+                                    <td>{{ day.day }}</td>
+                                    <td>{{ day.date }}</td>
+                                    <td>{{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][(loop.index0 + day_of_week|default(0)) % 7] }}</td>
+                                    <td>{{ day.prediction }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize the chart with default forecast data
+        const forecastData = {{ forecast_data | tojson }};
+        const labels = forecastData.map(item => `Day ${item.day}: ${item.date}`);
+        const values = forecastData.map(item => parseFloat(item.raw_prediction || 0));
+        
+        const dayOfWeek = {{ day_of_week|default(0) }};
+        const daysOfWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+        const dayLabels = [];
+        
+        for (let i = 0; i < 7; i++) {
+            const dayIndex = (dayOfWeek + i) % 7;
+            dayLabels.push(daysOfWeek[dayIndex]);
+        }
+        
+        // Historical data is now loaded from the server
+        const historicalData = {{ historical_data | tojson | safe }} || { training: [], test: [] };
+        
+        const ctx = document.getElementById('forecast-chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: dayLabels,
+                datasets: [
+                    {
+                        label: 'Training Data',
+                        data: historicalData.training,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1,
+                        pointRadius: 3,
+                        pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                        tension: 0.1,
+                        borderDash: [5, 5]
+                    },
+                    {
+                        label: 'Test Data',
+                        data: historicalData.test,
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1,
+                        pointRadius: 3,
+                        pointBackgroundColor: 'rgba(255, 159, 64, 1)',
+                        tension: 0.1,
+                        borderDash: [2, 2]
+                    },
+                    {
+                        label: 'Sales Forecast (₹)',
+                        data: values,
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 2,
+                        pointRadius: 6,
+                        pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                        tension: 0.1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Sales Amount (₹)'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Day of Week'
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    zoom: {
+                        zoom: {
+                            wheel: {
+                                enabled: true,
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'xy',
+                            drag: {
+                                enabled: true,
+                                backgroundColor: 'rgba(0,150,100,0.1)',
+                                borderColor: 'rgba(0,150,100,0.5)',
+                                borderWidth: 1
+                            }
+                        },
+                        pan: {
+                            enabled: true,
+                            mode: 'xy',
+                        },
+                        limits: {
+                            y: {min: 'original', max: 'original'},
+                        }
+                    },
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-IN', {
+                                        style: 'currency',
+                                        currency: 'INR',
+                                        maximumFractionDigits: 0
+                                    }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Update analysis based on forecast
+        // No analysis function needed
+        
+        // Show/hide custom days input based on selection
+        document.getElementById('forecast_days').addEventListener('change', function() {
+            const value = this.value;
+            const customDaysContainer = document.getElementById('custom-days-container');
+            
+            if (value === 'custom') {
+                customDaysContainer.style.display = 'block';
+                // Update heading with current custom value
+                updateForecastHeading(document.getElementById('custom_days').value);
+            } else {
+                customDaysContainer.style.display = 'none';
+                updateForecastHeading(value);
+            }
+        });
+        
+        // Update heading when custom days input changes
+        document.getElementById('custom_days').addEventListener('input', function() {
+            updateForecastHeading(this.value);
+        });
+        
+        // Reset zoom button functionality
+        document.getElementById('reset-zoom').addEventListener('click', function() {
+            chart.resetZoom();
+        });
+        
+        // Function to update forecast heading
+        function updateForecastHeading(days) {
+            const headingElem = document.getElementById('forecast-heading');
+            if (days == 7) {
+                headingElem.textContent = '1-Week Sales Forecast';
+            } else if (days == 14) {
+                headingElem.textContent = '2-Week Sales Forecast';
+            } else if (days == 21) {
+                headingElem.textContent = '3-Week Sales Forecast';
+            } else {
+                headingElem.textContent = `${days}-Day Sales Forecast`;
+            }
+        }
+        
+        // Handle forecast button click
+        document.getElementById('forecast-btn').addEventListener('click', function() {
+            const formData = new FormData(document.getElementById('prediction-form'));
+            
+            // Handle custom days option
+            if (formData.get('forecast_days') === 'custom') {
+                const customDays = document.getElementById('custom_days').value;
+                formData.set('forecast_days', customDays);
+            }
+            
+            fetch('/forecast', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the forecast data
+                    const newForecast = data.forecast;
+                    
+                    // Get the forecast duration
+                    const forecastDays = parseInt(formData.get('forecast_days'));
+                    
+                    // Update forecast heading
+                    updateForecastHeading(forecastDays);
+                    
+                    // Update day labels based on selected day of week
+                    const selectedDayIndex = parseInt(formData.get('day_of_week'));
+                    const newDayLabels = [];
+                    for (let i = 0; i < forecastDays; i++) {
+                        const dayIndex = (selectedDayIndex + i) % 7;
+                        newDayLabels.push(daysOfWeek[dayIndex]);
+                    }
+                    
+                    // Get real historical data from the backend response
+                    let newHistoricalData;
+                    if (data.historical_data) {
+                        newHistoricalData = data.historical_data;
+                    } else {
+                        // Fallback if server doesn't provide historical data
+                        newHistoricalData = {
+                            training: [],
+                            test: []
+                        };
+                        
+                        // Generate placeholders if needed
+                        const baseValue = parseFloat(formData.get('lag_1')) || 500000;
+                        const dayPatterns = {
+                            0: 1.0,  // Monday: baseline
+                            1: 0.95, // Tuesday: slight dip
+                            2: 1.02, // Wednesday: slight increase
+                            3: 1.15, // Thursday: moderate increase
+                            4: 1.25, // Friday: bigger increase
+                            5: 1.4,  // Saturday: peak
+                            6: 0.85  // Sunday: big dip
+                        };
+                        
+                        for (let i = 0; i < 7; i++) {
+                            const dayIndex = (selectedDayIndex + i) % 7;
+                            const pattern = dayPatterns[dayIndex];
+                            newHistoricalData.training.push(Math.round(baseValue * pattern * (1 + Math.random() * 0.1)));
+                            newHistoricalData.test.push(Math.round(baseValue * pattern * (1 + Math.random() * 0.05)));
+                        }
+                    }
+                    
+                    // Update all datasets
+                    chart.data.labels = newDayLabels;
+                    chart.data.datasets[0].data = newHistoricalData.training;
+                    chart.data.datasets[1].data = newHistoricalData.test;
+                    chart.data.datasets[2].data = newForecast.map(item => parseFloat(item.raw_prediction || 0));
+                    chart.update();
+                    
+                    // Update table
+                    const tableBody = document.querySelector('#forecast-table tbody');
+                    tableBody.innerHTML = '';
+                    
+                    newForecast.forEach((day, index) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${day.day}</td>
+                            <td>${day.date}</td>
+                            <td>${newDayLabels[index]}</td>
+                            <td>${day.prediction}</td>
+                        `;
+                        tableBody.appendChild(row);
+                    });
+                    
+                    // Update the global forecastData variable
+                    Object.assign(forecastData, newForecast);
+                    
+                    // No analysis update needed
+                } else {
+                    alert('Error generating forecast: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while processing your request.');
+            });
+        });
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
